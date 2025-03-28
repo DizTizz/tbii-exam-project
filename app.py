@@ -6,7 +6,7 @@ import streamlit.components.v1 as components
 import pandas as pd
 import time
 
-st.set_page_config(page_title='DnDinder', page_icon='🎲',layout="wide")
+st.set_page_config(page_title='DnDinder', page_icon='🎲', layout="centered")
 
 client = mongo.connect()
 db_name = 'UserData'
@@ -70,7 +70,9 @@ def wip():
 
 # Simple homepage which is personalized to a degree to the current user logged-in/if it's a new user it is catered to a new user
 def homepage():
-    st.image('images/banner.jpg', use_container_width=True)
+
+    st.image('images/banner.jpg')
+
     st.divider()
     account_con = st.container(border=True)
     account_con.markdown(
@@ -91,17 +93,10 @@ def homepage():
         if account_con.button('Account'):
             st.session_state.current_page = 'account'
             st.rerun()
-    c21, c22 = st.columns(spec=2, gap="medium")
+    c21, c22 = st.columns(spec=2, gap="large", vertical_alignment="center")
     with c21:
         finder_con = st.container(border=True)
         finder_con.image('images/finder_button.jpg')
-        #        finder_con.markdown(
-        #            '''
-        #           <h1 style="text-align:center;
-        #            text-decoration: underline;
-        #            text-decoration-color: red;
-        #            font-size: 20px"> Finder</h1>
-        #            ''', unsafe_allow_html=True)
         finder_con.write(
             "Use the Finder function, to find new friends! All suggestion are matched to your personal preferences")
         if finder_con.button('Give it a try!'):
@@ -109,16 +104,8 @@ def homepage():
             st.rerun()
     with c22:
         chat_con = st.container(border=True)
-
-        #        chat_con.markdown(
-        #            '''
-        #            <h1 style="text-align:center;
-        #            text-decoration: underline;
-        #            text-decoration-color: red;
-        #            font-size: 20px"> Chat</h1>
-        #            ''', unsafe_allow_html=True)
         chat_con.image('images/chat_button.jpg')
-        chat_con.write("Use the chat function to text with your buddies (Currently just DEMO)")
+        chat_con.write("Use the chat function to text with your buddies (limited Functionality)")
         if chat_con.button('Give it a try!', key='chat'):
             st.session_state.current_page = 'chat'
             st.rerun()
@@ -694,6 +681,11 @@ def user_interaction(purp, user):
 
 
 def view_friend(user):
+    st.markdown(
+        f'''<h1 style="text-align: center;
+                    font-size: 45px"> 
+                    👤</h1>
+                    ''', unsafe_allow_html=True)
     st.markdown(
         f'''<h1 style="text-align: center;
                     text-decoration: underline;
