@@ -6,7 +6,7 @@ import streamlit.components.v1 as components
 import pandas as pd
 import time
 
-st.set_page_config(page_title='DnDinder', page_icon='🎲')
+st.set_page_config(page_title='DnDinder', page_icon='🎲',layout="wide")
 
 client = mongo.connect()
 db_name = 'UserData'
@@ -36,6 +36,7 @@ if "view_user" not in st.session_state:
 if "chat_log" not in st.session_state:
     st.session_state.chat_log = {}
 
+# Creates the sidebar buttons in the desired order. Differentiates between a logged in user and a non-logged in user
 with st.sidebar:
     home_button = st.button('Home🏠', use_container_width=True)
     if st.session_state.user == 'guest':
@@ -46,9 +47,11 @@ with st.sidebar:
         account_button = st.button('Account👤', use_container_width=True)
         if account_button:
             st.session_state.current_page = 'account'
+
         friend_button = st.button("Friends 👫", use_container_width=True)
         if friend_button:
             st.session_state.current_page = "friend"
+
     finder_button = st.button('Finder🌐', use_container_width=True)
     chat_button = st.button('Chat💬', use_container_width=True)
 
@@ -67,37 +70,15 @@ def wip():
 
 # Simple homepage which is personalized to a degree to the current user logged-in/if it's a new user it is catered to a new user
 def homepage():
-    st.markdown(
-        '''
-        <h1 style="text-align: center;
-        font-size:60px;
-        text-decoration: underline;
-        text-decoration-color: red;
-        font-family: 'Times New Roman', sarif"> 
-        Welcome to DnDinder </h1>
-        ''',
-        unsafe_allow_html=True)
-    st.image('images/banner.jpg')
+    st.image('images/banner.jpg', use_container_width=True)
     st.divider()
-    #    c11, c12 = st.columns(spec=[0.6, 0.4])
-    #    with c11:
-    #        news_con = st.container(border=True)
-    #        news_con.markdown(
-    #            '''
-    #            <h1 style="text-align:center;
-    #            text-decoration: underline;
-    #            text-decoration-color: red;
-    #            font-size: 30px"> NEWS</h1>
-    #            ''', unsafe_allow_html=True)
-
-    #    with c12:
     account_con = st.container(border=True)
     account_con.markdown(
-        f'''<h1 style="text-align: center;
+        f'''<h1 style="
             text-decoration: underline;
             text-decoration-color: red;
             font-size: 30px"> 
-            Hello {st.session_state.user}</h1>
+            Hello {st.session_state.user}👋</h1>
             ''', unsafe_allow_html=True)
     if st.session_state.user == 'guest':
         account_con.write(
@@ -163,7 +144,7 @@ def finder():
         Welcome to the Finder </h1>
         ''',
         unsafe_allow_html=True)
-    #st.image('images/finder_button.jpg')
+    # st.image('images/finder_button.jpg')
     if st.session_state.user == "guest":
         st.write(
             "It seems you're not logged in, if you want to make use of the finder option, you will first need to make a profile")
@@ -223,35 +204,68 @@ def finder():
                 st.session_state.scrolled_users += 1
                 st.rerun()
         else:
-            st.write("You have seen all recommended users, upon next login this list will be refreshed")
+            st.write("You have seen all recommended users, use the button below to refresh it")
+            if st.button("See your Friend list"):
+                st.session_state.current_page = "friend"
+                st.rerun()
+            if st.button("Refresh"):
+                st.session_state.scrolled_users = 0
+                st.session_state.comp_users = compatibility()
+                st.rerun()
 
 
 def chat():
-    st.image('images/chat_button.jpg')
+    st.markdown(
+        '''
+        <h1 style="text-align: center;
+        font-size:60px;
+        font-family: 'Times New Roman', sarif"> 
+        💬 </h1>
+        ''',
+        unsafe_allow_html=True)
+    st.markdown(
+        '''
+        <h1 style="text-align: center;
+        font-size:60px;
+        text-decoration: underline;
+        text-decoration-color: red;
+        font-family: 'Times New Roman', sarif"> 
+        Welcome to the Chat </h1>
+        ''',
+        unsafe_allow_html=True)
+    friends = db.loc[db["username"] == st.session_state.user, "friends"].values[0]
+    c1, c2 = st.columns(gap="small", border=True, spec=[0.4, 0.6])
+    with c1:
+        for x in friends:
+            if st.button(x, use_container_width=True):
+                st.session_state.view_user = x
+                st.rerun()
+    with c2:
+        if st.session_state.view_user != "none":
+            chat_con = st.container(border=True, height=500)
+            # To access the dict regardless of which order I present the two keys (Usernames) I used ChatGPT
+            st.session_state.chat_log = \
+                chat_collection.find_one({"$and": [{"key": {"$in": [st.session_state.view_user]}},
+                                                   {"key": {"$in": [st.session_state.user]}}]})[
+                    "log"]
+            for x in st.session_state.chat_log:
+                if st.session_state.user == x.split(":")[0]:
+                    with chat_con.chat_message(avatar="human", name=x):
+                        chat_con.caption(x)
+                        chat_con.write(st.session_state.chat_log[x])
+                elif st.session_state.view_user == x.split(":")[0]:
+                    with chat_con.chat_message(avatar="ai", name=x):
+                        chat_con.caption(x)
+                        chat_con.write(st.session_state.chat_log[x])
+        st.write("To receive new messages press R or send a new message")
+        chat_input = st.chat_input(key="chat_input")
 
-    if st.session_state.view_user != "none":
-        chat_con = st.container(border=True, height=500)
-        # To access the dict regardless of which order I present the two keys (Usernames) I used ChatGPT
-        st.session_state.chat_log = chat_collection.find_one({"$and": [{"key": {"$in": [st.session_state.view_user]}},
-                                                                       {"key": {"$in": [st.session_state.user]}}]})["log"]
-        for x in st.session_state.chat_log:
-            if st.session_state.user == x.split(":")[0]:
-                with chat_con.chat_message(avatar="human", name=x):
-                    chat_con.caption(x)
-                    chat_con.write(st.session_state.chat_log[x])
-            elif st.session_state.view_user == x.split(":")[0]:
-                with chat_con.chat_message(avatar="ai", name=x):
-                    chat_con.caption(x)
-                    chat_con.write(st.session_state.chat_log[x])
-    st.caption("To recieve new messages press R or send a new message")
-    chat_input = st.chat_input(key="chat_input")
-
-    if not chat_input is None:
-        x = st.session_state.user + ": " + datetime.datetime.today().strftime("%d;%m;%Y %H;%M;%S")
-        chat_collection.update_one({"$and": [{"key": {"$in": [st.session_state.view_user]}},
-                                             {"key": {"$in": [st.session_state.user]}}]},
-                                   {"$set": {f"log.{x}": chat_input}})
-        st.rerun()
+        if not chat_input is None:
+            x = st.session_state.user + ": " + datetime.datetime.today().strftime("%d;%m;%Y %H;%M;%S")
+            chat_collection.update_one({"$and": [{"key": {"$in": [st.session_state.view_user]}},
+                                                 {"key": {"$in": [st.session_state.user]}}]},
+                                       {"$set": {f"log.{x}": chat_input}})
+            st.rerun()
 
 
 # Function to both display a logged-in users data and additionally generate a sign-up form for new users
@@ -267,16 +281,16 @@ def account():
         userdata_entered = False
         userdata_collection = st.form(key='1')
 
-        with (userdata_collection):
+        with userdata_collection:
             st.header('Enter your personal Information', divider='gray')
             username = st.text_input('*Write your username, do not use: " : , ; - " (longer than 5 characters)')
             password = st.text_input(label='*Write your password', type='password')
             password_confirm = st.text_input(label='*Confirm your password', type='password')
             birthdate = st.date_input(label='*Choose your birthdate', format="DD/MM/YYYY",
-                                      value=datetime.datetime.today(),
-                                      min_value="10/10/1950")
+                                      value=datetime.datetime.today())
             location = st.selectbox(label="*Type in your city or alternatively check the box below", options=city_list)
             location_check = st.checkbox(label="If you'd rather not say your location check this box")
+            desc = st.text_input(label="Enter a description, you can always edit this later")
             st.header('Enter your Preferences', divider='gray')
             search = st.pills(label='Who/What are you looking for? (You can select Multiple)',
                               options=('Friends', 'Players', 'Dungeon Masters', 'Groups'),
@@ -324,7 +338,11 @@ def account():
                     'password': password,
                     'birthdate': birthdate.strftime(format='%d %m %Y'),
                     'location': location,
-                    'preferences': preferences
+                    'preferences': preferences,
+                    "description": desc,
+                    "friends": [],
+                    "pending": [],
+                    "blocked": []
                 }
                 print(userdata)
                 collection.insert_one(userdata)
@@ -341,7 +359,7 @@ def account():
                 text-decoration: underline;
                 text-decoration-color: red;
                 font-size: 45px"> 
-                Hello {st.session_state.user}</h1>
+                Hello {st.session_state.user} 👋</h1>
                 ''', unsafe_allow_html=True)
 
         user_pref = db.loc[db["username"] == st.session_state.user, "preferences"].values[0]
@@ -387,7 +405,8 @@ def account():
             for x in user_pref:
                 pref_con.write(f"{x}: {user_pref[x]}")
 
-            pref_con.button("Edit", key="pref_edit")
+            if pref_con.button("Edit", key="pref_edit"):
+                st.session_state.editor_state = "pref"
         if st.button('LogOut', key="LogOut"):
             st.session_state.user = 'guest'
             st.rerun()
@@ -404,46 +423,58 @@ def account():
             with st.form(key="pref_editor"):
                 search = st.pills(label='Who/What are you looking for? (You can select Multiple)',
                                   options=('Friends', 'Players', 'Dungeon Masters', 'Groups'),
-                                  selection_mode='multi',
-                                  default='Friends')
+                                  selection_mode='multi', default=user_pref["searching"])
                 identity = st.pills(label='Who are you?',
                                     options=('Player', 'Dungeon Master', 'Group', 'Unsure/Curious'),
-                                    default='Unsure/Curious')
+                                    default=user_pref["identity"])
                 play_pref = st.radio(label='How would you/Do you like to play?',
                                      options=['Role-Play Focused', 'Gameplay Focused', "Unsure/Don't care"],
-                                     index=2)
+                                     index=1)
                 experience = st.radio(label='How much experience do you have?',
                                       options=['None', 'Played once or twice', 'Played quite a bit', 'Played a lot'],
-                                      index=0)
+                                      index=1)
                 location_pref = st.radio(label='Where would you ideally like to play?',
                                          options=['In Person', 'Online', "Unsure/Don't care"],
                                          index=2)
-                if st.form_submit_button:
-                    collection.update_one({"username": st.session_state.user}, {"$set": {"preference.searching": search}})
-                    collection.update_one({"username": st.session_state.user}, {"$set": {"preference.identity": identity}})
-                    collection.update_one({"username": st.session_state.user}, {"$set": {"preference.play-preference": play_pref}})
-                    collection.update_one({"username": st.session_state.user}, {"$set": {"preference.experience": experience}})
-                    collection.update_one({"username": st.session_state.user}, {"$set": {"preference.location preference": location_pref}})
+                st.write("Make sure to check if all the fields represent your preferences")
+                if st.form_submit_button():
+                    collection.update_one({"username": st.session_state.user},
+                                          {"$set": {"preferences.searching": search}})
+                    collection.update_one({"username": st.session_state.user},
+                                          {"$set": {"preferences.identity": identity}})
+                    collection.update_one({"username": st.session_state.user},
+                                          {"$set": {"preferences.play-preference": play_pref}})
+                    collection.update_one({"username": st.session_state.user},
+                                          {"$set": {"preferences.experience": experience}})
+                    collection.update_one({"username": st.session_state.user},
+                                          {"$set": {"preferences.location preference": location_pref}})
+                    time.sleep(3)
+                    st.session_state.editor_state = "rest"
+                    st.rerun()
         elif st.session_state.editor_state == "basic":
             with st.form(key="basic_editor"):
                 birthdate = st.date_input(label='*Choose your birthdate', format="DD/MM/YYYY",
-                                          value=datetime.datetime.today(),
-                                          min_value="10/10/1950")
+                                          value=datetime.datetime.today())
                 location = st.selectbox(label="Type in your city or alternatively check the box below",
                                         options=city_list)
                 location_check = st.checkbox(label="If you'd rather not say your location check this box")
                 if st.form_submit_button():
                     if birthdate != datetime.date.today():
-                        collection.update_one({"username": st.session_state.user}, {"$set": {"birthdate": birthdate}})
+                        collection.update_one({"username": st.session_state.user},
+                                              {"$set": {"birthdate": birthdate.strftime(format='%d %m %Y')}})
+                        st.session_state.editor_state = "rest"
                     else:
                         st.write("Please enter a valid birthdate (not today)")
                     if location != "" or location_check:
                         if location_check:
                             collection.update_one({"username": st.session_state.user}, {"$set": {"location": "none"}})
+                            st.session_state.editor_state = "rest"
                         else:
                             collection.update_one({"username": st.session_state.user}, {"$set": {"location": location}})
+                            st.session_state.editor_state = "rest"
                     else:
                         st.write("Please fill out the location form with a valid city or check the box")
+                    st.rerun()
 
 
 def login():
@@ -489,7 +520,14 @@ def friend():
             collection.update_one({"username": i}, {"$pull": {"pending": st.session_state.user}})
 
             chat_collection.insert_one(document={"key": [st.session_state.user, i], "log": {}})
-
+    st.markdown(
+        '''
+        <h1 style="text-align: center;
+        font-size:60px;
+        font-family: 'Times New Roman', sarif"> 
+        👫 </h1>
+        ''',
+        unsafe_allow_html=True)
     st.markdown(
         '''
         <h1 style="text-align: center;
@@ -500,7 +538,7 @@ def friend():
         Your Friend List </h1>
         ''',
         unsafe_allow_html=True)
-    t1, t2, t3 = st.tabs(["Friends", "Pending", "Blocked"])
+    t1, t2, t3, t4 = st.tabs(["Friends", "Requests", "Blocked", "➕Add via Username"])
     with t1:
         c1, c2 = st.columns(2)
         if len(friends) == 0:
@@ -512,10 +550,11 @@ def friend():
                 with c2.container(border=True):
                     st.pills(label="Options", key=x, options=["View", "Message", "Remove", "Block"],
                              label_visibility="hidden", on_change=user_interaction, args=("friend", x))
+
     with t2:
         c1, c2 = st.columns(2)
         if len(pending) == 0:
-            st.write("It seems you don't have any pending friend requests")
+            st.write("You have not received any new friend requests")
         else:
             for x in pending:
                 with c1.container(border=True, height=92):
@@ -535,6 +574,24 @@ def friend():
                 with c2.container(border=True):
                     st.button("Unblock", key=x, use_container_width=True, on_click=user_interaction,
                               args=("blocked", x))
+
+    with t4:
+        search = st.text_input("Enter another Users exact Username to send a friend request")
+        if not search is None:
+            if search not in friends and search not in blocked:
+                users = db["username"].values
+                user_found = False
+                for x in users:
+                    if search == x and not user_found:
+                        if st.session_state.user not in db.loc[db["username"] == x, "pending"].values[0]:
+                            collection.update_one({"username": x},
+                                                  {"$addToSet": {"pending": st.session_state.user}})
+                            st.write("A friend request has been sent")
+                            user_found = True
+                        else:
+                            st.write("You have already sent this user a friend request")
+            else:
+                st.write("You are either already friends with this User or Blocked them")
 
 
 # A function to generate a list of users most fitting to the current user, to be used in the finder function
@@ -687,6 +744,9 @@ def view_friend(user):
                         ''', unsafe_allow_html=True)
         for x in user_pref:
             pref_con.write(f"{x}: {user_pref[x]}")
+    if st.button("Return"):
+        st.session_state.current_page = "friend"
+        st.rerun()
 
 
 # Function taken from here:
@@ -705,7 +765,6 @@ if st.session_state.current_page == 'home':
     db = pd.DataFrame(list(collection.find()))
     homepage()
 elif st.session_state.current_page == 'finder':
-
     db = pd.DataFrame(list(collection.find()))
     finder()
 elif st.session_state.current_page == 'account':
