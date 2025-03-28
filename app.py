@@ -6,13 +6,15 @@ import streamlit.components.v1 as components
 import pandas as pd
 import time
 
-st.set_page_config(page_title='DnDinder', page_icon='🎲', layout="centered")
+st.set_page_config(page_title='DnDinder', page_icon='🎲')
 
 client = mongo.connect()
 db_name = 'UserData'
 collection_name = 'User1'
+chat_collection_name = "Chat"
 database = client[db_name]
 collection = database[collection_name]
+chat_collection = database[chat_collection_name]
 db = pd.DataFrame(list(collection.find()))
 
 # Data from here: https://public.opendatasoft.com/explore/dataset/geonames-all-cities-with-a-population-1000/table/?disjunctive.cou_name_en&sort=name&location=2,0.90932,-0.05452&basemap=jawg.light
@@ -29,6 +31,11 @@ if "scrolled_users" not in st.session_state:
     st.session_state.scrolled_users = 0
 if "comp_users" not in st.session_state:
     st.session_state.comp_users = []
+if "view_user" not in st.session_state:
+    st.session_state.view_user = "none"
+if "chat_log" not in st.session_state:
+    st.session_state.chat_log = {}
+
 with st.sidebar:
     home_button = st.button('Home🏠', use_container_width=True)
     if st.session_state.user == 'guest':
@@ -39,7 +46,7 @@ with st.sidebar:
         account_button = st.button('Account👤', use_container_width=True)
         if account_button:
             st.session_state.current_page = 'account'
-        friend_button = st.button("Friends 👫")
+        friend_button = st.button("Friends 👫", use_container_width=True)
         if friend_button:
             st.session_state.current_page = "friend"
     finder_button = st.button('Finder🌐', use_container_width=True)
@@ -138,7 +145,14 @@ def homepage():
 
 # Interface which shows the results from the compatibility calculations and lets the user decide if they wish to befriend/add the suggested users
 def finder():
-
+    st.markdown(
+        '''
+        <h1 style="text-align: center;
+        font-size:60px;
+        font-family: 'Times New Roman', sarif"> 
+        🌐 </h1>
+        ''',
+        unsafe_allow_html=True)
     st.markdown(
         '''
         <h1 style="text-align: center;
@@ -149,32 +163,40 @@ def finder():
         Welcome to the Finder </h1>
         ''',
         unsafe_allow_html=True)
-    st.image('images/finder_button.jpg')
+    #st.image('images/finder_button.jpg')
     if st.session_state.user == "guest":
-        st.write("It seems you're not logged in, if you want to make use of the finder option, you will first need to make a profile")
+        st.write(
+            "It seems you're not logged in, if you want to make use of the finder option, you will first need to make a profile")
         if st.button("Sign up"):
             st.session_state.current_page = "account"
             st.rerun()
     else:
         if st.session_state.scrolled_users < len(st.session_state.comp_users):
-            st.write(f"You currently have {len(st.session_state.comp_users) - st.session_state.scrolled_users} recommended users")
+            st.write(
+                f"You currently have {len(st.session_state.comp_users) - st.session_state.scrolled_users} recommended users")
             with st.container(border=True):
-                user_pref = db.loc[db["username"] == st.session_state.comp_users[st.session_state.scrolled_users], "preferences"].values[0]
+                user_pref = db.loc[db["username"] == st.session_state.comp_users[
+                    st.session_state.scrolled_users], "preferences"].values[0]
 
-                st.header("Basic Information",divider="red")
+                st.header("Basic Information", divider="red")
                 st.write(f"Username: {st.session_state.comp_users[st.session_state.scrolled_users]}")
-                st.write(f"Birthdate: {db.loc[db["username"] == st.session_state.comp_users[st.session_state.scrolled_users], "birthdate"].values[0]}")
-                if db.loc[db["username"] == st.session_state.comp_users[st.session_state.scrolled_users], "location"].values[0] == "none":
+                st.write(
+                    f"Birthdate: {db.loc[db["username"] == st.session_state.comp_users[st.session_state.scrolled_users], "birthdate"].values[0]}")
+                if db.loc[
+                    db["username"] == st.session_state.comp_users[st.session_state.scrolled_users], "location"].values[
+                    0] == "none":
                     st.write("This user does not share their Location")
                 else:
-                    st.write(f"Location: {db.loc[db["username"] == st.session_state.comp_users[st.session_state.scrolled_users], "location"].values[0]}")
+                    st.write(
+                        f"Location: {db.loc[db["username"] == st.session_state.comp_users[st.session_state.scrolled_users], "location"].values[0]}")
 
-                st.header("Preferences",divider="red")
+                st.header("Preferences", divider="red")
                 for x in user_pref:
                     st.write(f"{x}: {user_pref[x]}")
 
-                st.header("Description",divider="red")
-                st.write(db.loc[db["username"] == st.session_state.comp_users[st.session_state.scrolled_users], "description"].values[0])
+                st.header("Description", divider="red")
+                st.write(db.loc[db["username"] == st.session_state.comp_users[
+                    st.session_state.scrolled_users], "description"].values[0])
             c1, c2, c3 = st.columns(3)
 
             with c1:
@@ -185,13 +207,15 @@ def finder():
                 skip_button = st.button("Skip this user 📲")
 
             if friend_button:
-                collection.update_one({"username": st.session_state.comp_users[st.session_state.scrolled_users]}, {"$addToSet":{"pending":st.session_state.user}})
+                collection.update_one({"username": st.session_state.comp_users[st.session_state.scrolled_users]},
+                                      {"$addToSet": {"pending": st.session_state.user}})
                 st.session_state.scrolled_users += 1
                 st.rerun()
 
             elif ignore_button:
                 collection.update_one({"username": st.session_state.user},
-                                      {"$addToSet":{"blocked":st.session_state.comp_users[st.session_state.scrolled_users]}})
+                                      {"$addToSet": {
+                                          "blocked": st.session_state.comp_users[st.session_state.scrolled_users]}})
                 st.session_state.scrolled_users += 1
                 st.rerun()
 
@@ -204,6 +228,30 @@ def finder():
 
 def chat():
     st.image('images/chat_button.jpg')
+
+    if st.session_state.view_user != "none":
+        chat_con = st.container(border=True, height=500)
+        # To access the dict regardless of which order I present the two keys (Usernames) I used ChatGPT
+        st.session_state.chat_log = chat_collection.find_one({"$and": [{"key": {"$in": [st.session_state.view_user]}},
+                                                                       {"key": {"$in": [st.session_state.user]}}]})["log"]
+        for x in st.session_state.chat_log:
+            if st.session_state.user == x.split(":")[0]:
+                with chat_con.chat_message(avatar="human", name=x):
+                    chat_con.caption(x)
+                    chat_con.write(st.session_state.chat_log[x])
+            elif st.session_state.view_user == x.split(":")[0]:
+                with chat_con.chat_message(avatar="ai", name=x):
+                    chat_con.caption(x)
+                    chat_con.write(st.session_state.chat_log[x])
+    st.caption("To recieve new messages press R or send a new message")
+    chat_input = st.chat_input(key="chat_input")
+
+    if not chat_input is None:
+        x = st.session_state.user + ": " + datetime.datetime.today().strftime("%d;%m;%Y %H;%M;%S")
+        chat_collection.update_one({"$and": [{"key": {"$in": [st.session_state.view_user]}},
+                                             {"key": {"$in": [st.session_state.user]}}]},
+                                   {"$set": {f"log.{x}": chat_input}})
+        st.rerun()
 
 
 # Function to both display a logged-in users data and additionally generate a sign-up form for new users
@@ -221,15 +269,16 @@ def account():
 
         with (userdata_collection):
             st.header('Enter your personal Information', divider='gray')
-            username = st.text_input('*Write your username')
+            username = st.text_input('*Write your username, do not use: " : , ; - " (longer than 5 characters)')
             password = st.text_input(label='*Write your password', type='password')
             password_confirm = st.text_input(label='*Confirm your password', type='password')
             birthdate = st.date_input(label='*Choose your birthdate', format="DD/MM/YYYY",
-                                      value=datetime.datetime.today())
-            location = st.selectbox(label="Type in your city or alternatively check the box below", options=city_list)
+                                      value=datetime.datetime.today(),
+                                      min_value="10/10/1950")
+            location = st.selectbox(label="*Type in your city or alternatively check the box below", options=city_list)
             location_check = st.checkbox(label="If you'd rather not say your location check this box")
             st.header('Enter your Preferences', divider='gray')
-            search = st.pills(label='Who/What are you looking for?',
+            search = st.pills(label='Who/What are you looking for? (You can select Multiple)',
                               options=('Friends', 'Players', 'Dungeon Masters', 'Groups'),
                               selection_mode='multi',
                               default='Friends')
@@ -249,7 +298,8 @@ def account():
                 location = "none"
             if username != '' and password != '' and birthdate.strftime(
                     format='%d %m %Y') != datetime.datetime.today().strftime(
-                format='%d %m %Y') and password == password_confirm:
+                format='%d %m %Y') and password == password_confirm and ":" and "." not in username and len(
+                username) >= 5:
                 if location != 'none' or location_check:
                     userdata_entered = True
 
@@ -278,9 +328,8 @@ def account():
                 }
                 print(userdata)
                 collection.insert_one(userdata)
-                st.header('Success, taking you to the login page now')
-                st.progress()
-                time.sleep(5)
+                st.header('Success, taking you to the login page now', anchor="success")
+                scroll_to("success")
                 st.session_state.current_page = 'login'
                 st.rerun()
         elif not userdata_entered and submit:
@@ -342,6 +391,7 @@ def account():
         if st.button('LogOut', key="LogOut"):
             st.session_state.user = 'guest'
             st.rerun()
+
         if st.session_state.editor_state == "desc":
             with st.form(key="desc_editor"):
                 desc = st.text_input("Write your description")
@@ -351,15 +401,49 @@ def account():
                     st.session_state.editor_state = "rest"
                     st.rerun()
         elif st.session_state.editor_state == "pref":
-            st.write("pref")
+            with st.form(key="pref_editor"):
+                search = st.pills(label='Who/What are you looking for? (You can select Multiple)',
+                                  options=('Friends', 'Players', 'Dungeon Masters', 'Groups'),
+                                  selection_mode='multi',
+                                  default='Friends')
+                identity = st.pills(label='Who are you?',
+                                    options=('Player', 'Dungeon Master', 'Group', 'Unsure/Curious'),
+                                    default='Unsure/Curious')
+                play_pref = st.radio(label='How would you/Do you like to play?',
+                                     options=['Role-Play Focused', 'Gameplay Focused', "Unsure/Don't care"],
+                                     index=2)
+                experience = st.radio(label='How much experience do you have?',
+                                      options=['None', 'Played once or twice', 'Played quite a bit', 'Played a lot'],
+                                      index=0)
+                location_pref = st.radio(label='Where would you ideally like to play?',
+                                         options=['In Person', 'Online', "Unsure/Don't care"],
+                                         index=2)
+                if st.form_submit_button:
+                    collection.update_one({"username": st.session_state.user}, {"$set": {"preference.searching": search}})
+                    collection.update_one({"username": st.session_state.user}, {"$set": {"preference.identity": identity}})
+                    collection.update_one({"username": st.session_state.user}, {"$set": {"preference.play-preference": play_pref}})
+                    collection.update_one({"username": st.session_state.user}, {"$set": {"preference.experience": experience}})
+                    collection.update_one({"username": st.session_state.user}, {"$set": {"preference.location preference": location_pref}})
         elif st.session_state.editor_state == "basic":
             with st.form(key="basic_editor"):
                 birthdate = st.date_input(label='*Choose your birthdate', format="DD/MM/YYYY",
-                                          value=datetime.datetime.today())
+                                          value=datetime.datetime.today(),
+                                          min_value="10/10/1950")
                 location = st.selectbox(label="Type in your city or alternatively check the box below",
                                         options=city_list)
                 location_check = st.checkbox(label="If you'd rather not say your location check this box")
-                st.form_submit_button()
+                if st.form_submit_button():
+                    if birthdate != datetime.date.today():
+                        collection.update_one({"username": st.session_state.user}, {"$set": {"birthdate": birthdate}})
+                    else:
+                        st.write("Please enter a valid birthdate (not today)")
+                    if location != "" or location_check:
+                        if location_check:
+                            collection.update_one({"username": st.session_state.user}, {"$set": {"location": "none"}})
+                        else:
+                            collection.update_one({"username": st.session_state.user}, {"$set": {"location": location}})
+                    else:
+                        st.write("Please fill out the location form with a valid city or check the box")
 
 
 def login():
@@ -393,6 +477,19 @@ def login():
 
 
 def friend():
+    friends = db.loc[db["username"] == st.session_state.user, "friends"].values[0]
+    blocked = db.loc[db["username"] == st.session_state.user, "blocked"].values[0]
+    pending = db.loc[db["username"] == st.session_state.user, "pending"].values[0]
+
+    for i in pending:
+        if st.session_state.user in db.loc[db["username"] == i, "pending"].values[0]:
+            collection.update_one({"username": st.session_state.user}, {"$addToSet": {"friends": i}})
+            collection.update_one({"username": i}, {"$addToSet": {"friends": st.session_state.user}})
+            collection.update_one({"username": st.session_state.user}, {"$pull": {"pending": i}})
+            collection.update_one({"username": i}, {"$pull": {"pending": st.session_state.user}})
+
+            chat_collection.insert_one(document={"key": [st.session_state.user, i], "log": {}})
+
     st.markdown(
         '''
         <h1 style="text-align: center;
@@ -403,6 +500,41 @@ def friend():
         Your Friend List </h1>
         ''',
         unsafe_allow_html=True)
+    t1, t2, t3 = st.tabs(["Friends", "Pending", "Blocked"])
+    with t1:
+        c1, c2 = st.columns(2)
+        if len(friends) == 0:
+            st.write("It seems you haven't added any friends yet. Use the Finder Function to find new friends")
+        else:
+            for x in friends:
+                with c1.container(border=True, height=92):
+                    st.write(x)
+                with c2.container(border=True):
+                    st.pills(label="Options", key=x, options=["View", "Message", "Remove", "Block"],
+                             label_visibility="hidden", on_change=user_interaction, args=("friend", x))
+    with t2:
+        c1, c2 = st.columns(2)
+        if len(pending) == 0:
+            st.write("It seems you don't have any pending friend requests")
+        else:
+            for x in pending:
+                with c1.container(border=True, height=92):
+                    st.write(x)
+                with c2.container(border=True):
+                    st.pills(label="Options", key=x, options=["Accept", "Deny", "Block"], label_visibility="hidden",
+                             on_change=user_interaction, args=("pending", x))
+
+    with t3:
+        c1, c2 = st.columns(2)
+        if len(blocked) == 0:
+            st.write("You have not blocked anyone")
+        else:
+            for x in blocked:
+                with c1.container(border=True, height=72):
+                    st.write(x)
+                with c2.container(border=True):
+                    st.button("Unblock", key=x, use_container_width=True, on_click=user_interaction,
+                              args=("blocked", x))
 
 
 # A function to generate a list of users most fitting to the current user, to be used in the finder function
@@ -424,7 +556,9 @@ def compatibility():
     for x in dictionary:
         compare = dictionary[x]
         comp_score = 0
-        if x not in friends and x not in blocked:
+        if x not in friends and x not in blocked and st.session_state.user not in \
+                db.loc[db["username"] == x, "blocked"].values[0] and st.session_state.user not in \
+                db.loc[db["username"] == x, "pending"].values[0]:
             for i in user_pref["searching"]:
                 if i[:-1] == "Friend":
                     comp_score += 2
@@ -465,6 +599,96 @@ def compatibility():
     return comp_users
 
 
+def user_interaction(purp, user):
+    action = st.session_state[user]
+
+    if purp == "friend":
+        if action == "Remove":
+            collection.update_one({"username": st.session_state.user}, {"$pull": {"friends": user}})
+            collection.update_one({"username": user}, {"$pull": {"friends": st.session_state.user}})
+            chat_collection.delete_one({"$and": [{"key": {"$in": [user]}},
+                                                 {"key": {"$in": [st.session_state.user]}}]})
+        elif action == "Block":
+            collection.update_one({"username": st.session_state.user}, {"$pull": {"friends": user}})
+            collection.update_one({"username": user}, {"$pull": {"friends": st.session_state.user}})
+            collection.update_one({"username": st.session_state.user}, {"$addToSet": {"blocked": user}})
+            chat_collection.delete_one({"$and": [{"key": {"$in": [user]}},
+                                                 {"key": {"$in": [st.session_state.user]}}]})
+        elif action == "View":
+            st.session_state.current_page = "view friend"
+            st.session_state.view_user = user
+        elif action == "Message":
+            st.session_state.current_page = "chat"
+            st.session_state.view_user = user
+    elif purp == "pending":
+        if action == "Accept":
+            collection.update_one({"username": st.session_state.user}, {"$pull": {"pending": user}})
+            collection.update_one({"username": st.session_state.user}, {"$addToSet": {"friends": user}})
+            collection.update_one({"username": user}, {"$addToSet": {"friends": st.session_state.user}})
+            chat_collection.insert_one(document={"key": [st.session_state.user, user], "log": {}})
+        elif action == "Deny":
+            collection.update_one({"username": st.session_state.user}, {"$pull": {"pending": user}})
+        elif action == "Block":
+            collection.update_one({"username": st.session_state.user}, {"$pull": {"pending": user}})
+            collection.update_one({"username": st.session_state.user}, {"$addToSet": {"blocked": user}})
+    elif purp == "blocked":
+        collection.update_one({"username": st.session_state.user},
+                              {"$pull": {"blocked": user}})
+
+
+def view_friend(user):
+    st.markdown(
+        f'''<h1 style="text-align: center;
+                    text-decoration: underline;
+                    text-decoration-color: red;
+                    font-size: 45px"> 
+                    User Profile for {user}</h1>
+                    ''', unsafe_allow_html=True)
+
+    user_pref = db.loc[db["username"] == user, "preferences"].values[0]
+    c1, c2 = st.columns(2)
+
+    with c1:
+        basic_con = st.container(border=True)
+        desc_con = st.container(border=True)
+
+        basic_con.markdown(
+            f'''<h1 style="text-align: center;
+                        text-decoration: underline;
+                        text-decoration-color: red;
+                        font-size: 28px"> 
+                        This is their basic information</h1>
+                        ''', unsafe_allow_html=True)
+        basic_con.write(
+            "Their birthdate is: " + db.loc[db["username"] == user, "birthdate"].values[0])
+        if db.loc[db["username"] == user, "location"].values[0] == "none":
+            basic_con.write("This user chose not to share their location")
+        else:
+            basic_con.write("They live in: " + db.loc[db["username"] == user, "location"].values[0])
+
+        desc_con.markdown(
+            f'''<h1 style="text-align: center;
+                        text-decoration: underline;
+                        text-decoration-color: red;
+                        font-size: 28px"> 
+                        This is their description</h1>
+                        ''', unsafe_allow_html=True)
+        desc_con.write(db.loc[db["username"] == user, "description"].values[0])
+
+    with c2:
+        pref_con = st.container(border=True)
+
+        pref_con.markdown(
+            f'''<h1 style="text-align: center;
+                        text-decoration: underline;
+                        text-decoration-color: red;
+                        font-size: 28px"> 
+                        These are their preferences</h1>
+                        ''', unsafe_allow_html=True)
+        for x in user_pref:
+            pref_con.write(f"{x}: {user_pref[x]}")
+
+
 # Function taken from here:
 # https://discuss.streamlit.io/t/programmatically-jump-to-anchor-on-same-page-after-clicking-button/81466/2
 def scroll_to(element_id):
@@ -496,5 +720,8 @@ elif st.session_state.current_page == 'login':
 elif st.session_state.current_page == 'friend':
     db = pd.DataFrame(list(collection.find()))
     friend()
+elif st.session_state.current_page == "view friend":
+    db = pd.DataFrame(list(collection.find()))
+    view_friend(st.session_state.view_user)
 else:
     wip()
