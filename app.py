@@ -1,5 +1,8 @@
 import random
 import streamlit as st
+from requests import session
+from streamlit import session_state
+
 import mongodb_connection as mongo
 import datetime
 import streamlit.components.v1 as components
@@ -220,39 +223,45 @@ def chat():
         Welcome to the Chat </h1>
         ''',
         unsafe_allow_html=True)
-    friends = db.loc[db["username"] == st.session_state.user, "friends"].values[0]
-    c1, c2 = st.columns(gap="small", border=True, spec=[0.4, 0.6])
-    with c1:
-        for x in friends:
-            if st.button(x, use_container_width=True):
-                st.session_state.view_user = x
-                st.rerun()
-    with c2:
-        if st.session_state.view_user != "none":
-            chat_con = st.container(border=True, height=500)
-            # To access the dict regardless of which order I present the two keys (Usernames) I used ChatGPT
-            st.session_state.chat_log = \
-                chat_collection.find_one({"$and": [{"key": {"$in": [st.session_state.view_user]}},
-                                                   {"key": {"$in": [st.session_state.user]}}]})[
-                    "log"]
-            for x in st.session_state.chat_log:
-                if st.session_state.user == x.split(":")[0]:
-                    with chat_con.chat_message(avatar="human", name=x):
-                        chat_con.caption(x)
-                        chat_con.write(st.session_state.chat_log[x])
-                elif st.session_state.view_user == x.split(":")[0]:
-                    with chat_con.chat_message(avatar="ai", name=x):
-                        chat_con.caption(x)
-                        chat_con.write(st.session_state.chat_log[x])
-        st.write("To receive new messages press R or send a new message")
-        chat_input = st.chat_input(key="chat_input")
-
-        if not chat_input is None:
-            x = st.session_state.user + ": " + datetime.datetime.today().strftime("%d;%m;%Y %H;%M;%S")
-            chat_collection.update_one({"$and": [{"key": {"$in": [st.session_state.view_user]}},
-                                                 {"key": {"$in": [st.session_state.user]}}]},
-                                       {"$set": {f"log.{x}": chat_input}})
+    if session_state.user == "guest":
+        st.write("You are not logged in yet, log in to write and receive messages")
+        if st.button("Log In"):
+            st.session_state.current_page = "login"
             st.rerun()
+    else:
+        friends = db.loc[db["username"] == st.session_state.user, "friends"].values[0]
+        c1, c2 = st.columns(gap="small", border=True, spec=[0.4, 0.6])
+        with c1:
+            for x in friends:
+                if st.button(x, use_container_width=True):
+                    st.session_state.view_user = x
+                    st.rerun()
+        with c2:
+            if st.session_state.view_user != "none":
+                chat_con = st.container(border=True, height=500)
+                # To access the dict regardless of which order I present the two keys (Usernames) I used ChatGPT
+                st.session_state.chat_log = \
+                    chat_collection.find_one({"$and": [{"key": {"$in": [st.session_state.view_user]}},
+                                                       {"key": {"$in": [st.session_state.user]}}]})[
+                        "log"]
+                for x in st.session_state.chat_log:
+                    if st.session_state.user == x.split(":")[0]:
+                        with chat_con.chat_message(avatar="human", name=x):
+                            chat_con.caption(x)
+                            chat_con.write(st.session_state.chat_log[x])
+                    elif st.session_state.view_user == x.split(":")[0]:
+                        with chat_con.chat_message(avatar="ai", name=x):
+                            chat_con.caption(x)
+                            chat_con.write(st.session_state.chat_log[x])
+            st.write("To receive new messages press R or send a new message")
+            chat_input = st.chat_input(key="chat_input")
+
+            if not chat_input is None:
+                x = st.session_state.user + ": " + datetime.datetime.today().strftime("%d;%m;%Y %H;%M;%S")
+                chat_collection.update_one({"$and": [{"key": {"$in": [st.session_state.view_user]}},
+                                                     {"key": {"$in": [st.session_state.user]}}]},
+                                           {"$set": {f"log.{x}": chat_input}})
+                st.rerun()
 
 
 # Function to both display a logged-in users data and additionally generate a sign-up form for new users
