@@ -1,6 +1,6 @@
 import random
 import streamlit as st
-from source import mongodb_connection as mongo
+import mongodb_connection as mongo
 import datetime
 import streamlit.components.v1 as components
 import pandas as pd
