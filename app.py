@@ -1,16 +1,16 @@
 import random
 import streamlit as st
-from requests import session
 from streamlit import session_state
-
 import mongodb_connection as mongo
 import datetime
 import streamlit.components.v1 as components
 import pandas as pd
 import time
 
+# I set the page layout as centered, even though it made the chat window look kind of weird, because the other layout made the home screen look weird in turn and over inflated elements like the Sign up Window
 st.set_page_config(page_title='DnDinder', page_icon='🎲', layout="centered")
 
+# Requesting all Data from my MongoDB databases for the first time. The Pandas Dataframes created here are then also regularly updated with the collection, to make certain that they are up to date
 client = mongo.connect()
 db_name = 'UserData'
 collection_name = 'User1'
@@ -20,10 +20,13 @@ collection = database[collection_name]
 chat_collection = database[chat_collection_name]
 db = pd.DataFrame(list(collection.find()))
 
-# Data from here: https://public.opendatasoft.com/explore/dataset/geonames-all-cities-with-a-population-1000/table/?disjunctive.cou_name_en&sort=name&location=2,0.90932,-0.05452&basemap=jawg.light
+# Data from here: https://public.opendatasoft.com/explore/dataset/geonames-all-cities-with-a-population-1000/table/?disjunctive.cou_name_en&sort=name&location=2,0.90932,-0.05452&basemap=jawg.light.
+# While having every City above 1000 inhabitants seems a little overkill (and it is) there were no major drawbacks to using it for this specific app, outside of a little slowdown when selecting a city
 cities = pd.read_csv("source/city_dt.csv")
 city_list = cities["Name"].values.tolist()
 
+# creating a bunch of session state variables that were necessary due to needing to frequently rerun the app due to updating the online database.
+# It was also at the time the one way I knew to make different pages work. Now I know that there are different ways, but that would be the job for a new iteration.
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 'home'
 if 'user' not in st.session_state:
@@ -39,7 +42,8 @@ if "view_user" not in st.session_state:
 if "chat_log" not in st.session_state:
     st.session_state.chat_log = {}
 
-# Creates the sidebar buttons in the desired order. Differentiates between a logged in user and a non-logged in user
+# Creates the sidebar buttons in the desired order. Differentiates between a logged-in user and a non-logged-in user.
+# This is the main way for the user to choose their desired function of the website, altough alternative ways exist
 with st.sidebar:
     home_button = st.button('Home🏠', use_container_width=True)
     if st.session_state.user == 'guest':
@@ -71,9 +75,9 @@ def wip():
     st.header('Sorry, this page is still a work in progress')
 
 
-# Simple homepage which is personalized to a degree to the current user logged-in/if it's a new user it is catered to a new user
+# Simple homepage which is personalized to a degree to the current user logged-in/if it's a new user it is catered to a new user.
+# It also leads a new user to making an account and introduces the apps functions.
 def homepage():
-
     st.image('images/banner.jpg')
 
     st.divider()
@@ -134,7 +138,7 @@ def finder():
         Welcome to the Finder </h1>
         ''',
         unsafe_allow_html=True)
-    # st.image('images/finder_button.jpg')
+
     if st.session_state.user == "guest":
         st.write(
             "It seems you're not logged in, if you want to make use of the finder option, you will first need to make a profile")
@@ -142,6 +146,7 @@ def finder():
             st.session_state.current_page = "account"
             st.rerun()
     else:
+        # This part of the code simply uses the list created by the compatibility function and goes through it step by step, giving the user the opportunity to decide what to do with each recommended user
         if st.session_state.scrolled_users < len(st.session_state.comp_users):
             st.write(
                 f"You currently have {len(st.session_state.comp_users) - st.session_state.scrolled_users} recommended users")
@@ -170,6 +175,7 @@ def finder():
                     st.session_state.scrolled_users], "description"].values[0])
             c1, c2, c3 = st.columns(3)
 
+            # Each of these buttons then, allows the user to decide to either block, skip or send a friend request to the recommended user
             with c1:
                 friend_button = st.button("Send Friend request ✔")
             with c2:
@@ -193,17 +199,26 @@ def finder():
             elif skip_button:
                 st.session_state.scrolled_users += 1
                 st.rerun()
+
+        # Immediately redirects the user to a place they can see any friends they have added, friend requests they've received and also users they have blocked
         else:
             st.write("You have seen all recommended users, use the button below to refresh it")
             if st.button("See your Friend list"):
                 st.session_state.current_page = "friend"
                 st.rerun()
+
+            # Reruns the compatibility function
             if st.button("Refresh"):
                 st.session_state.scrolled_users = 0
                 st.session_state.comp_users = compatibility()
                 st.rerun()
 
 
+# A very basic chat, which still require the user to manually refresh by pressing "R" to receive new messages.
+# It functions on the simple concept that upon two users becoming friends, they also have an entry created for the both of them in a different Collection.
+# This collection stores a key (which due to me omitting any encryption is just the two usernames) and attached to it is a dictionary which can store the chat log.
+# This chat log can then be read out by the code and is created in a chronological order. The avatar also changes depending on if a message was written by the current user
+# or the user the current user is communicating with.
 def chat():
     st.markdown(
         '''
@@ -256,6 +271,7 @@ def chat():
             st.write("To receive new messages press R or send a new message")
             chat_input = st.chat_input(key="chat_input")
 
+            # Simply adds the new message the user wrote to the chat log
             if not chat_input is None:
                 x = st.session_state.user + ": " + datetime.datetime.today().strftime("%d;%m;%Y %H;%M;%S")
                 chat_collection.update_one({"$and": [{"key": {"$in": [st.session_state.view_user]}},
@@ -265,6 +281,9 @@ def chat():
 
 
 # Function to both display a logged-in users data and additionally generate a sign-up form for new users
+# I didn't end up including a form of encryption for this app since it is just a simple exam project.
+# A proper commercially viable form of this app would ofcourse to adhere to Data protection standards, but to be frank,
+# I'm not an expert and becoming well versed in it seemed out of the scope for this project.
 def account():
     if st.session_state.user.lower() == 'guest':
         st.markdown(
@@ -306,6 +325,7 @@ def account():
                                      index=2)
             if location_check:
                 location = "none"
+            # Making sure that the user has actually entered the really important parts of this sign-up form
             if username != '' and password != '' and birthdate.strftime(
                     format='%d %m %Y') != datetime.datetime.today().strftime(
                 format='%d %m %Y') and password == password_confirm and ":" and "." not in username and len(
@@ -318,10 +338,12 @@ def account():
         st.divider()
 
         if userdata_entered and submit:
+            # Just checking if the Username already exists in the databank
             if username in db.username.values:
                 st.header('This username already exists', anchor='sowwy')
                 scroll_to('sowwy')
             else:
+                # Otherwise creates a document to be added to the online database
                 preferences = {
                     'searching': search,
                     'identity': identity,
@@ -350,6 +372,7 @@ def account():
             st.header('Something wasnt entered correctly', anchor='error')
             scroll_to('error')
     else:
+        # The means of displaying a users data and allowing them to edit it.
         st.markdown(
             f'''<h1 style="text-align: center;
                 text-decoration: underline;
@@ -474,6 +497,7 @@ def account():
 
 
 def login():
+    # A simple Log-In form that allows users to type in their username and password to change the currently active user
     st.markdown(
         '''
         <div style="text-align:center;
@@ -503,6 +527,10 @@ def login():
             st.write('failure')
 
 
+# Displays a users friends. Since you can only navigate to this site using buttons that appear on log-in. I did not feel the need to make sure that a proper user is logged in.
+# This code also allows for some interaction with these data entries over another function user_interaction, which manages all functions the buttons are supposed to do.
+# Stuff like removing/blocking friends etc..
+# It also allows the user to call another function, which allows them to see a friends information, and it allows them to immediately message them
 def friend():
     friends = db.loc[db["username"] == st.session_state.user, "friends"].values[0]
     blocked = db.loc[db["username"] == st.session_state.user, "blocked"].values[0]
@@ -643,6 +671,7 @@ def compatibility():
                     z = compatibility_dict[x]
                 elif z == compatibility_dict[x]:
                     added_users.append(x)
+        # This ensures that user higher in the databse (that have created their account earlier) do not get preferential treatment
         random.shuffle(added_users)
         if len(added_users) >= 5 and v < 500000:
             added_users = added_users[:4]
@@ -652,6 +681,8 @@ def compatibility():
     return comp_users
 
 
+# Can only be called by buttons in the friends function. Simply manages all the different interactions one can do via buttons there.
+# Due to the fact that all buttons in friends had to be automatically generated, making if statements with them seemed more difficult and tedious, than simply writing this function.
 def user_interaction(purp, user):
     action = st.session_state[user]
 
@@ -689,6 +720,7 @@ def user_interaction(purp, user):
                               {"$pull": {"blocked": user}})
 
 
+# Just displays a specific users information
 def view_friend(user):
     st.markdown(
         f'''<h1 style="text-align: center;
@@ -752,6 +784,7 @@ def view_friend(user):
 
 # Function taken from here:
 # https://discuss.streamlit.io/t/programmatically-jump-to-anchor-on-same-page-after-clicking-button/81466/2
+# I didn't end up using this a lot, but it seemed important for improving the user flow at the time
 def scroll_to(element_id):
     components.html(f'''
         <script>
